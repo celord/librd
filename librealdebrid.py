@@ -1,32 +1,55 @@
-import requests,urllib3
-from time import sleep
+from auth import Auth
+import requests,json
 
-CLIENT_ID = 'X245A4XAIBGVM'
+auth = Auth()
+token = auth.get_credentials()['access_token']
 USER_AGENT = 'librd'
-headers = {'User-Agent': USER_AGENT}
-url = 'https://api.real-debrid.com/oauth/v2/device/code?client_id=%s&new_credentials=yes' % (
-    CLIENT_ID)
+headers = {'Authorization': 'Bearer %s' % token,
+           'User-Agent': USER_AGENT}
 
-#Request the user code to enter in https://real-debrid.com/device
-result = requests.get(url)
-result = result.json()
-device_code = result['device_code']
-user_code = result['user_code']
-print("Device Code: {} ".format(device_code))
-print("User Code: {} ".format(user_code))
+def get_user_data():
+    """
+    Returns some informations on the current user
+    """
+    data = {'url':'https://api.real-debrid.com/rest/1.0/user'
+            }
+
+    result = requests.get(data['url'], headers=headers)
+
+    result = result.content.decode('utf8').replace("'", '"')
+    result = json.loads(result)
+    s = json.dumps(result, indent=4, sort_keys=True) ##Pretty print
+    print(result)
 
 
-for i in range(3600):
-    try:
-        sleep(5)
-        url = 'https://api.real-debrid.com/oauth/v2/device/credentials?client_id=%s&code=%s' % (
-            CLIENT_ID, device_code)
-        print("FOR Device Code: {} ".format(device_code))
-        print("FOR User Code: {} ".format(user_code))
-        result = requests.get(url)
-        result = result.json()
-        print(result)
-        if 'client_secret' in result: break
-    except:
-        pass
+def get_user_download_list():
+    """
+    Returns some informations on the current user
+    """
+    data = {'url': 'https://api.real-debrid.com/rest/1.0/downloads'
+            }
 
+    result = requests.get(data['url'], headers=headers)
+
+    result = result.content.decode('utf8').replace("'", '"')
+    result = json.loads(result)
+    s = json.dumps(result, indent=4, sort_keys=True)  # Pretty print
+    print(s)
+
+
+def get_user_torrents_list():
+    """
+    Returns some informations on the current user
+    """
+    data = {'url': 'https://api.real-debrid.com/rest/1.0/torrents'
+            }
+
+    result = requests.get(data['url'], headers=headers)
+
+    result = result.content.decode('utf8').replace("'", '"')
+    result = json.loads(result)
+    s = json.dumps(result, indent=4, sort_keys=True)  # Pretty print
+    print(s)
+
+if __name__ == '__main__':
+    get_user_torrents_list()
