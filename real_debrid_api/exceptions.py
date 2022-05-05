@@ -1,0 +1,2 @@
+class RealDebridApiException(Exception):
+    pass
