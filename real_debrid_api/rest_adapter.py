@@ -17,6 +17,14 @@ class RestAdapter:
         access_token: str = "",
         logger: logging.Logger = None,
     ):
+        """
+        Constructor for RestAdapter
+        :param hostname: Normally,api.real-debrid.com/rest
+        :param api_key: string used for authentication when POSTing or DELETEing
+        :param ver: always 1.0
+        :param ssl_verify: Normally set to True, but if having SSL/TLS cert validation issues, can turn off with False
+        :param logger: (optional) If your app has a logger, pass it in here.
+        """
         self.url = f"https://{hostname}/{version}/"
         self._ssl_verify = ssl_verify
         self._access_token = Auth().get_credentials()
@@ -30,12 +38,14 @@ class RestAdapter:
         if not ssl_verify:
             # noispection PyUnresolvedReferences
             requests.packages.urllib3.diable_warnings()
-        logging.basicConfig(level=logging.DEBUG)
+        # logging.basicConfig(level=logging.DEBUG)
 
     def _do(self, http_method: str, endpoint: str, data: Dict = None) -> Result:
         full_url = self.url + endpoint
         log_line_pre = f"method={http_method}, url={full_url}"
         log_line_post = log_line_pre + " success={},status_code={},message={},"
+
+        # Log HTTP params and perform an HTTP request, catching and re-raising any exceptions
         try:
             self._logger.debug(msg=log_line_pre)
             response = requests.request(
@@ -48,12 +58,16 @@ class RestAdapter:
         except requests.exceptions.RequestException as e:
             self._logger.error(msg=(str(e)))
             raise RealDebridApiException("Request Failed") from e
+        # Deserialize JSON output to Python object, or return failed Result on exception
         try:
             data_out = response.json()
         except (ValueError, JSONDecodeError) as e:
             self._logger.error(msg=log_line_post.format(False, None, e))
             raise RealDebridApiException("Bad JSON in response") from e
-        is_success = 299 >= response.status_code >= 200
+
+        # If status_code in 200-299 range, return success Result with data, otherwise raise exception
+
+        is_success = 299 >= response.status_code >= 200  # 200-299 range is OK
         log_line = log_line_post.format(
             is_success, response.status_code, response.reason
         )
