@@ -10,13 +10,7 @@ from real_debrid_api.models import Result
 
 class RestAdapter:
     def __init__(
-        self,
-        hostname: str,
-        version: str = "1.0",
-        ssl_verify: bool = True,
-        access_token: str = "",
-        logger: logging.Logger = None,
-    ):
+            self, hostname: str, version: str = "1.0", ssl_verify: bool = True, access_token: str = "", logger: logging.Logger = None):
         """
         Constructor for RestAdapter
         :param hostname: Normally,api.real-debrid.com/rest
@@ -33,14 +27,16 @@ class RestAdapter:
         self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X)"
         self.headers = {
             "Authorization": f"Bearer {self._access_token}",
+            "Content-type": "multipart/form-data;",
             "User-Agent": self.user_agent,
         }
         if not ssl_verify:
             # noispection PyUnresolvedReferences
             requests.packages.urllib3.diable_warnings()
-        # logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG)
 
-    def _do(self, http_method: str, endpoint: str, data: Dict = None) -> Result:
+    def _do(self, http_method: str, endpoint: str, ep_params: Dict = None,
+            data: Dict = None, files: Dict = None) -> Result:
         full_url = self.url + endpoint
         log_line_pre = f"method={http_method}, url={full_url}"
         log_line_post = log_line_pre + " success={},status_code={},message={},"
@@ -48,13 +44,9 @@ class RestAdapter:
         # Log HTTP params and perform an HTTP request, catching and re-raising any exceptions
         try:
             self._logger.debug(msg=log_line_pre)
-            response = requests.request(
-                http_method,
-                url=full_url,
-                verify=self._ssl_verify,
-                headers=self.headers,
-                json=data,
-            )
+            response = requests.request(http_method, url=full_url, verify=self._ssl_verify,
+                                        headers=self.headers, params=ep_params, data=data, files=files)
+
         except requests.exceptions.RequestException as e:
             self._logger.error(msg=(str(e)))
             raise RealDebridApiException("Request Failed") from e
@@ -75,10 +67,12 @@ class RestAdapter:
             self._logger.debug(msg=log_line)
             return Result(response.status_code, message=response.reason, data=data_out)
         self._logger.error(msg=log_line)
-        raise RealDebridApiException(f"{response.status_code}:{response.reason}")
+        raise RealDebridApiException(
+            f"{response.status_code}:{response.reason}")
 
-    def get(self, endpoint: str) -> Result:
-        return self._do(http_method="GET", endpoint=endpoint)
+    def get(self, endpoint: str, ep_params: Dict = None) -> Result:
+        return self._do(http_method="GET", endpoint=endpoint, ep_params=ep_params)
 
-    def post(self, endpoint: str, data: Dict) -> Result:
+    def post(self, endpoint: str, data: Dict = None) -> Result:
+        self._logger.debug(msg=data)
         return self._do(http_method="POST", endpoint=endpoint, data=data)

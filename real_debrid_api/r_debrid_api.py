@@ -11,3 +11,8 @@ class RealDebridApi:
     def get_user_info(self) -> Result:
         result = self._rest_adapter.get(endpoint="user")
         return result
+
+    def unrestrict(self, link: str) -> Result:
+        data = {"link": link}
+        result = self._rest_adapter.post(endpoint="unrestrict/link", data=data)
+        return result
