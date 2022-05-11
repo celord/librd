@@ -2,7 +2,7 @@ import logging
 import requests
 import requests.packages
 from json import JSONDecodeError
-from typing import List, Dict
+from typing import Callable, List, Dict
 from real_debrid_api.auth import Auth
 from real_debrid_api.exceptions import RealDebridApiException
 from real_debrid_api.models import Result
@@ -21,8 +21,8 @@ class RestAdapter:
         """
         self.url = f"https://{hostname}/{version}/"
         self._ssl_verify = ssl_verify
-        self._access_token = Auth().get_credentials()
-        self._access_token = self._access_token["access_token"]
+        self._auth = Auth()
+        self._access_token = self._auth.get_access_token()
         self._logger = logger or logging.getLogger(__name__)
         self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X)"
         self.headers = {
@@ -33,7 +33,7 @@ class RestAdapter:
         if not ssl_verify:
             # noispection PyUnresolvedReferences
             requests.packages.urllib3.diable_warnings()
-        logging.basicConfig(level=logging.DEBUG)
+        # logging.basicConfig(level=logging.DEBUG)
 
     def _do(self, http_method: str, endpoint: str, ep_params: Dict = None,
             data: Dict = None, files: Dict = None) -> Result:
@@ -51,22 +51,28 @@ class RestAdapter:
             self._logger.error(msg=(str(e)))
             raise RealDebridApiException("Request Failed") from e
         # Deserialize JSON output to Python object, or return failed Result on exception
-        try:
-            data_out = response.json()
-        except (ValueError, JSONDecodeError) as e:
-            self._logger.error(msg=log_line_post.format(False, None, e))
-            raise RealDebridApiException("Bad JSON in response") from e
-
+        if response.status_code != 204:
+            try:
+                data_out = response.json()
+            except (ValueError, JSONDecodeError) as e:
+                self._logger.error(msg=log_line_post.format(False, None, e))
+                raise RealDebridApiException("Bad JSON in response") from e
+        else:
+            data_out = response.status_code
         # If status_code in 200-299 range, return success Result with data, otherwise raise exception
 
         is_success = 299 >= response.status_code >= 200  # 200-299 range is OK
+        auth_error = 499 >= response.status_code >= 400  # Authenticaion error
         log_line = log_line_post.format(
             is_success, response.status_code, response.reason
         )
         if is_success:
             self._logger.debug(msg=log_line)
             return Result(response.status_code, message=response.reason, data=data_out)
-        self._logger.error(msg=log_line)
+        if auth_error:
+            self._logger.debug(msg=auth_error)
+            self._refresh_token = Auth()
+            self._refresh_token.refresh_authentication()
         raise RealDebridApiException(
             f"{response.status_code}:{response.reason}")
 

@@ -1,6 +1,7 @@
 import requests
 import json
 import urllib3
+import datetime
 from time import sleep
 
 
@@ -65,8 +66,13 @@ class Auth:
         self.data["refresh_token"] = self.result["refresh_token"]
         self.data["token_type"] = self.result["token_type"]
 
+        expire_date = datetime.datetime.now() + \
+            datetime.timedelta(seconds=int(self.result["expires_in"]))
+        self.data["expires_at"] = expire_date.strftime("%m/%d/%Y, %H:%M:%S")
+
         with open("auth.json", "w") as auth:
             json.dump(self.data, auth)
+        auth.close()
 
     def refresh_authentication(self):
         """
@@ -92,18 +98,46 @@ class Auth:
         self.data["refresh_token"] = self.result["refresh_token"]
         self.data["token_type"] = self.result["token_type"]
 
+        expire_date = datetime.datetime.now() + \
+            datetime.timedelta(seconds=int(self.result["expires_in"]))
+        self.data["expires_at"] = expire_date.strftime("%m/%d/%Y, %H:%M:%S")
+
         with open("auth.json", "w") as auth:
             json.dump(self.data, auth)
+        auth.close()
 
-    def get_credentials(self): 
+    def verify_expired(self, exp: str):
+        expired = datetime.datetime.now() >= datetime.datetime.strptime(
+            exp, "%m/%d/%Y, %H:%M:%S")
+        return expired
+
+    def get_credentials(self):
         """
         Returns the current credentials
         """
         try:
             with open("auth.json", "r") as auth:
                 self.credentials = json.load(auth)
-            return self.credentials
+                expired = self.verify_expired(self.credentials['expires_at'])
+                if expired:
+                    auth.close()
+                    self.refresh_authentication()
+                    self.get_credentials()
+        except Exception:
+            pass
+
+    def get_access_token(self):
+        """
+        Returns the current credentials
+        """
+        try:
+            with open("auth.json", "r") as auth:
+                self.credentials = json.load(auth)
+                expired = self.verify_expired(self.credentials['expires_at'])
+                if expired:
+                    auth.close()
+                    self.refresh_authentication()
+                    self.get_access_token()
+                return self.credentials['access_token']
         except Exception as e:
-            print(f"Get credentials failed: {e}")
-            self.authenticate()
-            self.get_credentials()
+            print(e)
